@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login e Gerador</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .container {
+            text-align: center;
+            background-color: #222;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        input, button {
+            margin: 10px 0;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            background-color: #333;
+            color: #e0e0e0;
+            font-size: 16px;
+        }
+
+        button {
+            background-color: #6200ea;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #3700b3;
+        }
+
+        textarea {
+            width: 80%;
+            height: 200px;
+            resize: none;
+            background-color: #333;
+            color: #e0e0e0;
+            border: 1px solid #555;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        #barraCarregando {
+            width: 100%;
+            height: 10px;
+            background-color: #444;
+            border-radius: 5px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        #barraCarregando span {
+            display: block;
+            height: 100%;
+            background-color: #6200ea;
+            border-radius: 5px;
+            width: 0%;
+            transition: width 0.5s ease-in-out;
+        }
+
+        #tempoEstimado {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Tela de Login -->
+    <div class="container" id="loginScreen">
+        <h1>Login</h1>
+        <input type="text" id="username" placeholder="Usuário"><br>
+        <input type="password" id="password" placeholder="Senha"><br>
+        <button onclick="login()">Entrar</button>
+        <p id="loginMessage" style="color: red; display: none;">Usuário ou senha inválidos!</p>
+    </div>
+
+    <!-- Tela de Gerador -->
+    <div class="hidden" id="generatorScreen">
+        <h1>Nobre</h1>
+        <label for="quantidade">Quantos nitros você quer gerar?</label>
+        <input type="number" id="quantidade" value="1" min="1" max="100">
+        <button onclick="gerarCodigos()">Gerar Nitro</button>
+
+        <div id="barraCarregando">
+            <span></span>
+        </div>
+
+        <div id="tempoEstimado"></div>
+
+        <textarea id="codigosGerados" readonly></textarea>
+        <button onclick="verificarCodigos()">Verificar Códigos</button>
+
+        <div id="resultados"></div>
+
+        <button id="baixarButton" onclick="baixarCodigos()" style="display: none;">Baixar Códigos Válidos</button>
+    </div>
+
+    <script>
+        const validUsername = "nobre";
+        const validPassword = "1234";
+
+        function login() {
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+
+            if (username === validUsername && password === validPassword) {
+                document.getElementById("loginScreen").classList.add("hidden");
+                document.getElementById("generatorScreen").classList.remove("hidden");
+            } else {
+                const message = document.getElementById("loginMessage");
+                message.style.display = "block";
+                setTimeout(() => {
+                    message.style.display = "none";
+                }, 3000);
+            }
+        }
+
+        let codigos = [];
+
+        function gerarCodigo() {
+            const caracteres = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+            let codigo = '';
+            for (let i = 0; i < 24; i++) {
+                codigo += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
+            }
+            return `https://discord.com/billing/promotions/${codigo}`;
+        }
+
+        function gerarCodigos() {
+            const quantidade = parseInt(document.getElementById('quantidade').value);
+            const textarea = document.getElementById('codigosGerados');
+            codigos = [];
+
+            for (let i = 0; i < quantidade; i++) {
+                const codigo = gerarCodigo();
+                codigos.push(codigo);
+            }
+
+            textarea.value = codigos.join('\n');
+        }
+
+        async function verificarCodigos() {
+            const resultadosDiv = document.getElementById('resultados');
+            const barra = document.getElementById('barraCarregando');
+            const tempoEstimadoDiv = document.getElementById('tempoEstimado');
+            resultadosDiv.innerHTML = ''; // Limpa resultados anteriores
+            barra.style.display = 'block'; // Exibe a barra de carregamento
+            tempoEstimadoDiv.style.display = 'block'; // Exibe a estimativa de tempo
+
+            const tempoPorCodigo = 200; // Tempo estimado por código em milissegundos
+            const totalCodigos = codigos.length;
+            const tempoTotal = (totalCodigos * tempoPorCodigo) / 1000; // Tempo total em segundos
+            tempoEstimadoDiv.innerText = `Tempo estimado: ${tempoTotal.toFixed(1)} segundos`;
+
+            let progress = 0;
+            const intervalo = setInterval(() => {
+                if (progress < 100) {
+                    progress += 5; // Aumenta a barra a cada 5%
+                    barra.querySelector('span').style.width = `${progress}%`;
+                } else {
+                    clearInterval(intervalo); // Para a barra quando chega a 100%
+                    processarResultados();
+                }
+            }, 100); // A cada 100ms, aumenta o progresso
+
+            async function processarResultados() {
+                const verificacoes = codigos.map(async (codigo) => {
+                    try {
+                        const response = await fetch(codigo, { method: 'GET' });
+                        return { codigo, valido: response.ok };
+                    } catch {
+                        return { codigo, valido: false };
+                    }
+                });
+
+                const resultados = await Promise.all(verificacoes);
+
+                // Filtra os códigos válidos
+                const validos = resultados.filter(result => result.valido).map(result => result.codigo);
+
+                // Exibe apenas os códigos válidos
+                if (validos.length > 0) {
+                    resultadosDiv.innerHTML = `<p style="color: green;">Válidos (${validos.length}):</p>`;
+                    validos.forEach(link => {
+                        resultadosDiv.innerHTML += `<p style="color: green;">✔️ <a href="${link}" target="_blank">${link}</a></p>`;
+                    });
+                } else {
+                    resultadosDiv.innerHTML = '<p style="color: red;">Nenhum código válido encontrado.</p>';
+                }
+
+                barra.style.display = 'none'; // Esconde a barra após a verificação
+                tempoEstimadoDiv.style.display = 'none'; // Esconde a estimativa de tempo
+
+                // Exibe o botão de download apenas se houver códigos válidos
+                if (validos.length > 0) {
+                    document.getElementById('baixarButton').style.display = 'inline-block';
+                }
+            }
+        }
+
+        function baixarCodigos() {
+            const validos = Array.from(document.querySelectorAll('#resultados p a')).map(a => a.href);
+            const conteudo = validos.join('\n');
+            
+            const blob = new Blob([conteudo], { type: 'text/plain' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'codigos_validos.txt';
+            link.click();
+        }
+    </script>
+</body>
+</html>
